@@ -1,103 +1,210 @@
-//SPDX-License-Identifier: UNLICENSED
-/* Needed functionalites:
-    - List, Unlist, Sale
-    - Whitelist for KYC
-    - Split payments so we can take a slice
-    - Need to have "whole" tokens where they are not divisible by infinity
-    - Fungible, all tokens are equal
-    - Customizable in constructor where we can add information as needed to display
-    - create a cap so no more tokens can be minted
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.2;
 
-  Other considerations:
-    - no need to know who owns what tokens if the smart contract keeps them from not selling outside of env
-    - best way to handle listings
-    - want to create it to be "pausable"
-    - KYC information will be held "off-chain"
-    - openzeppelin considerations:
-        - multicall
-        - escrow
-        - escrow refund
-        - PaymentSplitter
-*/
+import "@openzeppelin/contracts-upgradeable/token/ERC1155/ERC1155Upgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/access/AccessControlUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/security/PausableUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
+import "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 
-pragma solidity ^0.8.0;
 
-import "@openzeppelin/contracts/token/ERC1155/ERC1155.sol";
-import "@openzeppelin/contracts/access/AccessControl.sol";
-import "@openzeppelin/contracts/access/Ownable.sol";
-import "@openzeppelin/contracts/token/ERC20/extensions/ERC20Capped.sol";
+contract RealiumToken is Initializable, ERC1155Upgradeable, AccessControlUpgradeable, PausableUpgradeable, UUPSUpgradeable {
+    bytes32 public constant URI_SETTER_ROLE = keccak256("URI_SETTER_ROLE");
+    bytes32 public constant PAUSER_ROLE = keccak256("PAUSER_ROLE");
+    bytes32 public constant MINTER_ROLE = keccak256("MINTER_ROLE");
+    bytes32 public constant UPGRADER_ROLE = keccak256("UPGRADER_ROLE");
+    bytes32 public constant ALLOWED_USER_ROLE = keccak256("USER_ROLE");
 
-contract RealiumToken is ERC1155, Ownable, AccessControl {
-    // Creat Roles(Users who have access)
-    bytes32 public constant USER_ROLE = keccak256("USER_ROLE");
+    //STRUCTS
+    // TODO: Implement constructor to have property information
+    // struct Property {
+    //     string parcelNumber;
+    //     bool listed;
+    //     uint256 numTokens;
+    //     uint256 price;
+    //     address owner;
+    // }
 
     struct Listing {
-        address tokenSeller;
+        address seller;
         uint256 numTokens;
         uint256 price;
-    }
-
-    struct Property {
-        string parcelNumber;
         bool listed;
-        uint256 numTokens;
-        uint256 price;
-        address owner;
+        bool isListing;
+        uint256 index;
     }
 
-    mapping (address => uint256) public listingNums;
-
+    // EVENTS
     event Listed(address indexed owner, uint256 price, uint256 numTokens);
     event Unlisted(address indexed owner, uint256 previousPrice, uint256 numTokens);
     event Sale(address indexed seller, address indexed buyer, uint256 price, uint256 numTokens);
 
-    address [] public addresses;
-    Listing [] public allListings;
-
+    // PUBLIC VARIABLES
+    mapping (address => Listing) private listings;
+    address [] private listingIndexes;
     string private TOKEN_NAME;
     string private TOKEN_SYMBOL;
     string private parcelNumber;
 
-    constructor(uint256 initialSupply, string memory parcelNum) ERC20("Realium Property 1", "RLM") {
-        _mint(msg.sender, initialSupply);
-        parcelNumber = parcelNum;
-        allListings.push(Listing(msg.sender,0,0));
+    /// @custom:oz-upgrades-unsafe-allow constructor
+    constructor() initializer {
+
     }
 
-    function decimals() public view virtual override returns (uint8) {
-        return 0;
+    function initialize() initializer public {
+        __ERC1155_init("");
+        __AccessControl_init();
+        __Pausable_init();
+        __UUPSUpgradeable_init();
+
+        _setupRole(DEFAULT_ADMIN_ROLE, msg.sender);
+        _setupRole(URI_SETTER_ROLE, msg.sender);
+        _setupRole(PAUSER_ROLE, msg.sender);
+        _setupRole(MINTER_ROLE, msg.sender);
+        _setupRole(UPGRADER_ROLE, msg.sender);
+        _setupRole(ALLOWED_USER_ROLE, msg.sender);
+        addAllowedUserRole(msg.sender);
     }
+
+    function setURI(string memory newuri) public onlyRole(URI_SETTER_ROLE) {
+        _setURI(newuri);
+    }
+
+    function pause() public onlyRole(PAUSER_ROLE) {
+        _pause();
+    }
+
+    function unpause() public onlyRole(PAUSER_ROLE) {
+        _unpause();
+    }
+
+    function mint(address account, uint256 id, uint256 amount, bytes memory data)
+        public
+        onlyRole(MINTER_ROLE)
+    {
+        _mint(account, id, amount, data);
+    }
+
+    function mintBatch(address to, uint256[] memory ids, uint256[] memory amounts, bytes memory data)
+        public
+        onlyRole(MINTER_ROLE)
+    {
+        _mintBatch(to, ids, amounts, data);
+    }
+
+    function _beforeTokenTransfer(address operator, address from, address to, uint256[] memory ids, uint256[] memory amounts, bytes memory data)
+        internal
+        whenNotPaused
+        override
+    {
+        super._beforeTokenTransfer(operator, from, to, ids, amounts, data);
+    }
+
+    function _authorizeUpgrade(address newImplementation)
+        internal
+        onlyRole(UPGRADER_ROLE)
+        override
+    {}
+
+    // The following functions are overrides required by Solidity.
+
+    function supportsInterface(bytes4 interfaceId)
+        public
+        view
+        override(ERC1155Upgradeable, AccessControlUpgradeable)
+        returns (bool)
+    {
+        return super.supportsInterface(interfaceId);
+    }
+
+    // function addUserAddress(address userAddress) public{
+    //     addAllowedUserRole(userAddress);
+    // }
     
-    function getListings() public view returns (Listing[] memory){
-        return allListings;
-    }
+    // function getListings() public view returns (Listing[] memory){
+    //     return listings;
+    // }
     
     function getParcelNumber() public view returns (string memory){
         return parcelNumber;
     }
 
-    function addUser(address newUser) public onlyOwner{
-        _setupRole(USER_ROLE, newUser);
+    function addAllowedUserRole(address newUser) public onlyRole(DEFAULT_ADMIN_ROLE){
+        _setupRole(ALLOWED_USER_ROLE, newUser);
     }
 
-   function listProperty(uint256 _price, uint256 _numTokens) public onlyRole(USER_ROLE) {
-        require(_price > 0, "Price must be set above 0.");
-        require(_numTokens > 0, "Number of tokens must be set above 0.");
-        unlistProperty();
-        allListings.push(Listing(msg.sender,_numTokens, _price));
-        listingNums[msg.sender] = allListings.length-1;
-        emit Listed(msg.sender, _price, _numTokens);
+    function revokeRole(bytes32 role, address account) public override {
+        require(
+            role != DEFAULT_ADMIN_ROLE,
+            "ModifiedAccessControl: cannot revoke default admin role"
+        );
+
+        super.revokeRole(role, account);
     }
-    
-    function unlistProperty() public onlyRole(USER_ROLE) {
-        //need to check that owner has tokens
-        uint256 listingNum = listingNums[msg.sender];
-        if (listingNum != 0) {
-            Listing memory listing = allListings[listingNum];
-            allListings[listingNum] = Listing(msg.sender,0,0);
-            listingNums[msg.sender] = 0; 
-            emit Unlisted(msg.sender, listing.price, listing.numTokens);
+
+    function isListing(address seller) public view returns(bool isIndeed){
+        if (listingIndexes.length == 0) return false;
+        return (listingIndexes[listings[seller].index]==seller);
+    }
+
+    function createListing(address seller, uint256 numTokens, uint256 price) public onlyRole(ALLOWED_USER_ROLE) returns (uint256 index){
+        require(isListing(seller), "Listing for the address already exists. Please update current listing.");
+        list(seller, price, numTokens);
+        listingIndexes.push(seller);
+        listings[seller].index = listingIndexes.length-1;
+        emit Listed(msg.sender, price, numTokens);
+        return listingIndexes.length-1;
+    }
+
+    function getListingByAddress(address seller) public view onlyRole(ALLOWED_USER_ROLE) returns(Listing memory listing) {
+        require(!isListing(seller), "Listing does not exist for this address.");
+        return listings[seller];
+    }
+
+    //TODO: break this into a small bit size pieces where its update but really only changing price and numTokens, I don't think we will ever change index here
+    function updateListing(address seller, uint256 numTokens, uint256 price, bool listed, uint256 index) onlyRole(ALLOWED_USER_ROLE) public returns (bool success){
+        //Check there is currently a listings
+        if (listed==false){
+            unlist(seller);
         }
+        else {
+            list(seller, price, numTokens);
+        }
+        listings[seller].index=index;
+        return true;
+    }
+
+    function list(address seller, uint256 price, uint256 numTokens) public onlyRole(ALLOWED_USER_ROLE) returns (bool success){
+        require(!isListing(seller), "Listing does not exist for this address.");
+        listings[seller].seller=seller;
+        listings[seller].numTokens=numTokens;
+        listings[seller].price=price;
+        listings[seller].listed=true;
+        emit Listed(seller, price, numTokens);
+        return true;
+    }
+
+    function unlist(address seller) public onlyRole(ALLOWED_USER_ROLE) returns (bool success){
+        require(!isListing(seller), "Listing does not exist for this address.");
+        listings[seller].listed=false;
+        emit Unlisted(seller, listings[seller].price, listings[seller].numTokens);
+        return true;
+    }
+
+    //This should be done after a SALE of the tokens only
+    function removeListing(address seller) public onlyRole(ALLOWED_USER_ROLE) returns(uint256 index){
+        require(!isListing(seller), "Listing does not exist. Cannot delete listing that does not exist.");
+        uint256 rowToDelete = listings[seller].index;
+        address keyToMove = listingIndexes[listingIndexes.length-1];
+        listingIndexes[rowToDelete]=keyToMove;
+        listings[keyToMove].index = rowToDelete;
+        listingIndexes.pop();
+        //emit event of unlist or deleted listing
+        return rowToDelete;
+    }
+
+    function getListingCount() public view onlyRole(ALLOWED_USER_ROLE) returns (uint256){
+        return listingIndexes.length;
     }
 
     // Function that allows you to convert an address into a payable address
@@ -105,18 +212,18 @@ contract RealiumToken is ERC1155, Ownable, AccessControl {
         return payable(x);
     }
 
-    function sendTo(address _payee, uint256 _amount) public {
-        require(_payee != address(0) && _payee != address(this));
-        require(_amount > 0 && _amount <= address(this).balance);
-        address payable payeeAddress = _make_payable(_payee);
-        payeeAddress.transfer(_amount);
-    }
+    // function sendTo(address _payee, uint256 _amount) public {
+    //     require(_payee != address(0) && _payee != address(this));
+    //     require(_amount > 0 && _amount <= address(this).balance);
+    //     address payable payeeAddress = _make_payable(_payee);
+    //     payeeAddress.transfer(_amount);
+    // }
 
 
     // Need to send msg.value to the recipient here so ETH is being traded for tokens
     // function buyPropertyToken(address _sellerAddress, uint256 amount) public payable onlyRole(USER_ROLE) {
     //     uint256 numListing = listingNums[_sellerAddress];
-    //     Listing memory listing = allListings[numListing];
+    //     Listing memory listing = listings[numListing];
     //     require(msg.sender != address(0) && msg.sender != address(this));
     //     require(listing.price > 0, "The property must be sold for more than 0");
     //     uint256 total = listing.price*listing.numTokens;
@@ -128,7 +235,7 @@ contract RealiumToken is ERC1155, Ownable, AccessControl {
     //     address payable payerAddress = _make_payable(msg.sender);
     //     payerAddress.transfer(amount);
     //     // sendTo(ownerAddressPayable, total);
-    //     allListings[numListing]=Listing(msg.sender,0,0);
+    //     listings[numListing]=Listing(msg.sender,0,0);
     //     emit Sale(_sellerAddress, msg.sender, listing.price, listing.numTokens);
     // }   
 }

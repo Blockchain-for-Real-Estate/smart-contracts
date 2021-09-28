@@ -33,7 +33,7 @@
     "test": "npx hardhat test",
     "deploy": "npx hardhat run scripts/deploy.ts",
     "erc20": "npx hardhat run scripts/erc20.ts",
-    "erc1404": "npx hardhat run scripts/erc1404.ts",
+    "erc1155": "npx hardhat run scripts/erc1155.ts",
     "realium": "npx hardhat run scripts/realium.ts",
     "nft": "npx hardhat run scripts/nft.ts --network mainnet",
     "storage": "npx hardhat run scripts/storage.ts",
@@ -47,6 +47,7 @@
     "fund-cchain-addresses": "npx hardhat run scripts/fund-cchain-addresses.js"
   },
   "dependencies": {
+    "@openzeppelin/contracts-upgradeable": "^4.3.2",
     "typescript": "^4.3.5"
   },
   "engines": {

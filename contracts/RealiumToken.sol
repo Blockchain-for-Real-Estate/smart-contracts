@@ -6,14 +6,14 @@ import "@openzeppelin/contracts-upgradeable/access/AccessControlUpgradeable.sol"
 import "@openzeppelin/contracts-upgradeable/security/PausableUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
+import "./Listing.sol";
 
 
-contract RealiumToken is Initializable, ERC1155Upgradeable, AccessControlUpgradeable, PausableUpgradeable, UUPSUpgradeable {
+contract RealiumToken is Initializable, PausableUpgradeable, UUPSUpgradeable, Listing {
     bytes32 public constant URI_SETTER_ROLE = keccak256("URI_SETTER_ROLE");
     bytes32 public constant PAUSER_ROLE = keccak256("PAUSER_ROLE");
     bytes32 public constant MINTER_ROLE = keccak256("MINTER_ROLE");
     bytes32 public constant UPGRADER_ROLE = keccak256("UPGRADER_ROLE");
-    bytes32 public constant ALLOWED_USER_ROLE = keccak256("USER_ROLE");
 
     //STRUCTS
     // TODO: Implement constructor to have property information
@@ -25,26 +25,32 @@ contract RealiumToken is Initializable, ERC1155Upgradeable, AccessControlUpgrade
     //     address owner;
     // }
 
-    struct Listing {
-        address seller;
-        uint256 numTokens;
-        uint256 price;
-        bool listed;
-        bool isListing;
-        uint256 index;
-    }
+    // struct Listing {
+    //     address seller;
+    //     uint256 numTokens;
+    //     uint256 price;
+    //     bool listed;
+    //     bool isListing;
+    //     uint256 index;
+    // }
 
     // EVENTS
-    event Listed(address indexed owner, uint256 price, uint256 numTokens);
-    event Unlisted(address indexed owner, uint256 previousPrice, uint256 numTokens);
-    event Sale(address indexed seller, address indexed buyer, uint256 price, uint256 numTokens);
+    // event Listed(address indexed owner, uint256 price, uint256 numTokens);
+    // event Unlisted(address indexed owner, uint256 previousPrice, uint256 numTokens);
+    // event Sale(address seller, address indexed buyer, uint256 price, uint256 numTokens);
 
     // PUBLIC VARIABLES
-    mapping (address => Listing) private listings;
-    address [] private listingIndexes;
-    string private TOKEN_NAME;
-    string private TOKEN_SYMBOL;
+    // mapping (address => Listing) private listings;
+    // address [] private listingIndexes;
+    // string private TOKEN_NAME;
+    // string private TOKEN_SYMBOL;
     string private parcelNumber;
+
+    // string error_message = "Listing does not exist for this address.";
+
+    //TODO: TAKE THIS OUT AND MAKE IT DYNAMIC
+    //THESE ARE THE IDS FOR THE TOKENS
+    uint256 public constant TESTPROPERTY1 = 0;
 
     /// @custom:oz-upgrades-unsafe-allow constructor
     constructor() initializer {
@@ -64,6 +70,8 @@ contract RealiumToken is Initializable, ERC1155Upgradeable, AccessControlUpgrade
         _setupRole(UPGRADER_ROLE, msg.sender);
         _setupRole(ALLOWED_USER_ROLE, msg.sender);
         addAllowedUserRole(msg.sender);
+
+        _mint(msg.sender, TESTPROPERTY1, 10, "");
     }
 
     function setURI(string memory newuri) public onlyRole(URI_SETTER_ROLE) {
@@ -108,14 +116,14 @@ contract RealiumToken is Initializable, ERC1155Upgradeable, AccessControlUpgrade
 
     // The following functions are overrides required by Solidity.
 
-    function supportsInterface(bytes4 interfaceId)
-        public
-        view
-        override(ERC1155Upgradeable, AccessControlUpgradeable)
-        returns (bool)
-    {
-        return super.supportsInterface(interfaceId);
-    }
+    // function supportsInterface(bytes4 interfaceId)
+    //     public
+    //     view
+    //     override(ERC1155Upgradeable, AccessControlUpgradeable)
+    //     returns (bool)
+    // {
+    //     return super.supportsInterface(interfaceId);
+    // }
 
     // function addUserAddress(address userAddress) public{
     //     addAllowedUserRole(userAddress);
@@ -142,100 +150,97 @@ contract RealiumToken is Initializable, ERC1155Upgradeable, AccessControlUpgrade
         super.revokeRole(role, account);
     }
 
-    function isListing(address seller) public view returns(bool isIndeed){
-        if (listingIndexes.length == 0) return false;
-        return (listingIndexes[listings[seller].index]==seller);
-    }
-
-    function createListing(address seller, uint256 numTokens, uint256 price) public onlyRole(ALLOWED_USER_ROLE) returns (uint256 index){
-        require(isListing(seller), "Listing for the address already exists. Please update current listing.");
-        list(seller, price, numTokens);
-        listingIndexes.push(seller);
-        listings[seller].index = listingIndexes.length-1;
-        emit Listed(msg.sender, price, numTokens);
-        return listingIndexes.length-1;
-    }
-
-    function getListingByAddress(address seller) public view onlyRole(ALLOWED_USER_ROLE) returns(Listing memory listing) {
-        require(!isListing(seller), "Listing does not exist for this address.");
-        return listings[seller];
-    }
-
-    //TODO: break this into a small bit size pieces where its update but really only changing price and numTokens, I don't think we will ever change index here
-    function updateListing(address seller, uint256 numTokens, uint256 price, bool listed, uint256 index) onlyRole(ALLOWED_USER_ROLE) public returns (bool success){
-        //Check there is currently a listings
-        if (listed==false){
-            unlist(seller);
-        }
-        else {
-            list(seller, price, numTokens);
-        }
-        listings[seller].index=index;
-        return true;
-    }
-
-    function list(address seller, uint256 price, uint256 numTokens) public onlyRole(ALLOWED_USER_ROLE) returns (bool success){
-        require(!isListing(seller), "Listing does not exist for this address.");
-        listings[seller].seller=seller;
-        listings[seller].numTokens=numTokens;
-        listings[seller].price=price;
-        listings[seller].listed=true;
-        emit Listed(seller, price, numTokens);
-        return true;
-    }
-
-    function unlist(address seller) public onlyRole(ALLOWED_USER_ROLE) returns (bool success){
-        require(!isListing(seller), "Listing does not exist for this address.");
-        listings[seller].listed=false;
-        emit Unlisted(seller, listings[seller].price, listings[seller].numTokens);
-        return true;
-    }
-
-    //This should be done after a SALE of the tokens only
-    function removeListing(address seller) public onlyRole(ALLOWED_USER_ROLE) returns(uint256 index){
-        require(!isListing(seller), "Listing does not exist. Cannot delete listing that does not exist.");
-        uint256 rowToDelete = listings[seller].index;
-        address keyToMove = listingIndexes[listingIndexes.length-1];
-        listingIndexes[rowToDelete]=keyToMove;
-        listings[keyToMove].index = rowToDelete;
-        listingIndexes.pop();
-        //emit event of unlist or deleted listing
-        return rowToDelete;
-    }
-
-    function getListingCount() public view onlyRole(ALLOWED_USER_ROLE) returns (uint256){
-        return listingIndexes.length;
-    }
-
-    // Function that allows you to convert an address into a payable address
-    function _make_payable(address x) internal pure returns (address payable) {
-        return payable(x);
-    }
-
-    // function sendTo(address _payee, uint256 _amount) public {
-    //     require(_payee != address(0) && _payee != address(this));
-    //     require(_amount > 0 && _amount <= address(this).balance);
-    //     address payable payeeAddress = _make_payable(_payee);
-    //     payeeAddress.transfer(_amount);
+    // function isListing(address seller) public view returns(bool isIndeed){
+    //     if (listingIndexes.length == 0) return false;
+    //     return (listingIndexes[listings[seller].index]==seller);
     // }
 
+    // function createListing(address seller, uint256 numTokens, uint256 price) public onlyRole(ALLOWED_USER_ROLE) returns (uint256 index){
+    //     require(isListing(seller), "Listing for the address already exists. Please update current listing.");
+    //     list(seller, price, numTokens);
+    //     listingIndexes.push(seller);
+    //     listings[seller].index = listingIndexes.length-1;
+    //     emit Listed(msg.sender, price, numTokens);
+    //     return listingIndexes.length-1;
+    // }
 
-    // Need to send msg.value to the recipient here so ETH is being traded for tokens
-    // function buyPropertyToken(address _sellerAddress, uint256 amount) public payable onlyRole(USER_ROLE) {
-    //     uint256 numListing = listingNums[_sellerAddress];
-    //     Listing memory listing = listings[numListing];
-    //     require(msg.sender != address(0) && msg.sender != address(this));
-    //     require(listing.price > 0, "The property must be sold for more than 0");
-    //     uint256 total = listing.price*listing.numTokens;
-    //     require(msg.value >= total, "Value must be greater than the price of all the tokens");
-    //     //TODO: FIGURE OUT HOW TO SEND ETH FOR ERC-20
-    //     // address payable ownerAddressPayable = _make_payable(_sellerAddress); // We need to make this conversion to be able to use transfer() function to transfer ethers
-    //     approve(_sellerAddress, total);
-    //     transferFrom(_sellerAddress, msg.sender, listing.numTokens); // We can't use _addTokenTo or_removeTokenFrom functions, now we have to use transferFrom
-    //     address payable payerAddress = _make_payable(msg.sender);
-    //     payerAddress.transfer(amount);
-    //     // sendTo(ownerAddressPayable, total);
-    //     listings[numListing]=Listing(msg.sender,0,0);
-    //     emit Sale(_sellerAddress, msg.sender, listing.price, listing.numTokens);
-    // }   
+    // function getListingByAddress(address seller) public view onlyRole(ALLOWED_USER_ROLE) returns(Listing memory listing) {
+    //     require(!isListing(seller), error_message);
+    //     return listings[seller];
+    // }
+
+    // //TODO: break this into a small bit size pieces where its update but really only changing price and numTokens, I don't think we will ever change index here
+    // function updateListing(address seller, uint256 numTokens, uint256 price, bool listed, uint256 index) onlyRole(ALLOWED_USER_ROLE) public returns (bool success){
+    //     //Check there is currently a listings
+    //     if (listed==false){
+    //         unlist(seller);
+    //     }
+    //     else {
+    //         list(seller, price, numTokens);
+    //     }
+    //     listings[seller].index=index;
+    //     return true;
+    // }
+
+    // //May need to create a "admin" list that passes in address, and then have it always be msg.sender for security reasons
+    // function list(address seller, uint256 price, uint256 numTokens) public onlyRole(ALLOWED_USER_ROLE) returns (bool success){
+    //     require(!isListing(seller), error_message);
+    //     listings[seller].seller=seller;
+    //     listings[seller].numTokens=numTokens;
+    //     listings[seller].price=price;
+    //     listings[seller].listed=true;
+    //     setApprovalForAll(address(this), true);
+    //     emit Listed(seller, price, numTokens);
+    //     return true;
+    // }
+
+    // //May need to create a "admin" unlist that passes in address, and then have it always be msg.sender for security reasons
+    // function unlist(address seller) public onlyRole(ALLOWED_USER_ROLE) returns (bool success){
+    //     require(!isListing(seller), error_message);
+    //     listings[seller].listed=false;
+    //     setApprovalForAll(address(this), false);
+    //     emit Unlisted(seller, listings[seller].price, listings[seller].numTokens);
+    //     return true;
+    // }
+
+    // //This should be done after a SALE of the tokens only
+    // function removeListing(address seller) public onlyRole(ALLOWED_USER_ROLE) returns(uint256 index){
+    //     require(!isListing(seller), "Listing does not exist. Cannot delete listing that does not exist.");
+    //     uint256 rowToDelete = listings[seller].index;
+    //     address keyToMove = listingIndexes[listingIndexes.length-1];
+    //     listingIndexes[rowToDelete]=keyToMove;
+    //     listings[keyToMove].index = rowToDelete;
+    //     listingIndexes.pop();
+    //     //emit event of unlist or deleted listing
+    //     return rowToDelete;
+    // }
+
+    // function getListingCount() public view onlyRole(ALLOWED_USER_ROLE) returns (uint256){
+    //     return listingIndexes.length;
+    // }
+
+    // // Function that allows you to convert an address into a payable address
+    // function _make_payable(address x) internal pure returns (address payable) {
+    //     return payable(x);
+    // }
+
+    // function sale(address seller, uint256 tokenId) public {
+    //     transferToBuyer(seller, tokenId);
+    //     sendEthToSeller(seller, listings[seller].numTokens*listings[seller].price);
+    //     removeListing(seller);
+    //     emit Sale(seller, msg.sender, listings[seller].price, listings[seller].numTokens);
+    // }
+
+    // // send ether from contract to seller
+    // function sendEthToSeller(address seller, uint256 totalPrice) public {
+    //     address payable payeeAddress = _make_payable(seller);
+    //     payeeAddress.transfer(totalPrice);
+    // }
+
+    // // Need to figure out how to add msg.value to a call. And I think the msg.value is automatically added to the 
+    // function transferToBuyer(address seller, uint256 tokenId) public payable onlyRole(ALLOWED_USER_ROLE){
+    //     require(balanceOf(seller, tokenId)==listings[seller].numTokens);
+    //     require(msg.value>=(listings[seller].price*listings[seller].numTokens));
+    //     safeTransferFrom(seller, msg.sender, tokenId, listings[seller].numTokens, "");
+    // }
 }

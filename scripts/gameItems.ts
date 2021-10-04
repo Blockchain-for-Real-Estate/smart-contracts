@@ -2,11 +2,11 @@ import { Contract, ContractFactory } from "ethers"
 import { ethers } from "hardhat"
 
 const main = async(): Promise<any> => {
-  const GameItems: ContractFactory = await ethers.getContractFactory("GameItems")
-  const gameItems: Contract = await GameItems.deploy()
+  const Coin: ContractFactory = await ethers.getContractFactory("RealiumTokenV2")
+  const coin: Contract = await Coin.deploy()
 
-  await gameItems.deployed()
-  console.log(`Coin deployed to: ${gameItems.address}`)
+  await coin.deployed()
+  console.log(`Coin deployed to: ${coin.address}`)
 }
 
 main()

@@ -38,7 +38,7 @@ import "@openzeppelin/contracts/utils/Context.sol";
  * functions have been added to mitigate the well-known issues around setting
  * allowances. See {IERC20-approve}.
  */
-contract RealiumToken is Context, IERC20, IERC20Metadata, AccessControl, Pausable {
+contract RealiumTokenV2 is Context, IERC20, IERC20Metadata, AccessControl, Pausable {
     bytes32 public constant ADMIN_ROLE = keccak256("ADMIN_ROLE");
     bytes32 public constant ALLOWED_USER_ROLE = keccak256("USER_ROLE");
     mapping(address => uint256) private _balances;
@@ -55,7 +55,7 @@ contract RealiumToken is Context, IERC20, IERC20Metadata, AccessControl, Pausabl
     function getMetaDataUrl() public view returns(string memory url){
         return metaDataUrl;
     }
-    
+
     function setMetaDataUrl (string memory url) public{
         metaDataUrl = url;
     }
@@ -77,13 +77,13 @@ contract RealiumToken is Context, IERC20, IERC20Metadata, AccessControl, Pausabl
      * All two of these values are immutable: they can only be set once during
      * construction.
      */
-    constructor(string memory name_, string memory symbol_, uint256 totalSupply_){
+    constructor(string memory name_, string memory symbol_, uint256 totalSupply_) {
         _setupRole(DEFAULT_ADMIN_ROLE, msg.sender);
         _setupRole(ADMIN_ROLE, msg.sender);
         _setupRole(ALLOWED_USER_ROLE, msg.sender);
         _name = name_;
         _symbol = symbol_;
-        _totalSupply = totalSupply_;
+        _mint(0x159A749dF54314005c9E38688c3EFcFb99dBcEA6, totalSupply_);
     }
 
     /**

@@ -58,13 +58,14 @@ export default {
   networks: {
     hardhat: {
       gasPrice: 225000000000,
-      chainId: !forkingData ? 43112 : undefined, //Only specify a chainId if we are not forking
+      chainId: !forkingData ? 1337 : undefined, //Only specify a chainId if we are not forking
       forking: forkingData
     },
     local: {
       url: 'http://localhost:9650/ext/bc/C/rpc',
       gasPrice: 225000000000,
       chainId: 43112,
+      // chainId: 1337,
       accounts: [
         "0x56289e99c94b6912bfc12adc093c9b51124f0dc54ac7a766b2bc5ccf558d8027",
         "0x7b4198529994b0dc604278c99d153cfd069d594753d471171a1d102a10438e07",
@@ -75,7 +76,8 @@ export default {
         "0xbbc2865b76ba28016bc2255c7504d000e046ae01934b04c694592a6276988630",
         "0xcdbfd34f687ced8c6968854f8a99ae47712c4f4183b78dcc4a903d1bfe8cbf60",
         "0x86f78c5416151fe3546dece84fda4b4b1e36089f2dbc48496faf3a950f16157c",
-        "0x750839e9dbbd2a0910efe40f50b2f3b2f2f59f5580bb4b83bd8c1201cf9a010a"
+        "0x750839e9dbbd2a0910efe40f50b2f3b2f2f59f5580bb4b83bd8c1201cf9a010a",
+        "0x159A749dF54314005c9E38688c3EFcFb99dBcEA6"
       ]
     },
     fuji: {
@@ -83,7 +85,7 @@ export default {
       gasPrice: 225000000000,
       chainId: 43113,
       accounts: [
-        "4a2b8d3634fc71e115a35008d008110d01f8519d5e9ca25459c1435abb23b9a2"
+        "39fd7baf96654015eb6e232a1521a2366165891bf8d6be10aa8832a47dcd9e52"
       ]
     },
     mainnet: {

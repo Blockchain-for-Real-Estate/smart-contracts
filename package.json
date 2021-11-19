@@ -37,6 +37,7 @@
     "erc1155": "npx hardhat run scripts/erc1155.ts",
     "realium": "npx hardhat run scripts/realium.ts",
     "gameitems": "npx hardhat run scripts/gameItems.ts",
+    "realiumERC20": "npx hardhat run scripts/realiumERC20.ts",
     "nft": "npx hardhat run scripts/nft.ts --network mainnet",
     "storage": "npx hardhat run scripts/storage.ts",
     "contract-sizes": "yarn run hardhat size-contracts",

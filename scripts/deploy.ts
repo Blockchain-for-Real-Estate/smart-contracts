@@ -5,12 +5,12 @@ import {
 import { ethers } from "hardhat"
 
 const main = async(): Promise<any> => {
-  const Coin: ContractFactory = await ethers.getContractFactory("RealiumTokenV2")
-  const coin: Contract = await Coin.deploy("Realium Test","REAL",100)
-  console.log(coin.interface.format('json'))
+  const RealiumToken: ContractFactory = await ethers.getContractFactory("RealiumTestToken")
+  const realiumToken: Contract = await RealiumToken.deploy()
+  console.log(realiumToken.interface.format('json'))
 
-  await coin.deployed()
-  console.log(`Coin deployed to: ${coin.address}`)
+  await realiumToken.deployed()
+  console.log(`Realium Token deployed to: ${realiumToken.address}`)
 }
 
 main()

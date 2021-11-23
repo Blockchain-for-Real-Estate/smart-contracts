@@ -9,7 +9,7 @@ const OWNER_ADDRESS = ethers.utils.getAddress("0x159A749dF54314005c9E38688c3EFcF
 
 const DECIMALS = 0;
 
-const AMT = 150
+const AMT = 10
 
 ///////////////////////////////////////////////////////////
 // SEE https://hardhat.org/tutorial/testing-contracts.html
@@ -19,7 +19,7 @@ const AMT = 150
 ///////////////////////////////////////////////////////////
 
 // Start test block
-describe('Coin', function () {
+describe('Realium', function () {
     before(async function () {
         this.RealiumToken = await ethers.getContractFactory("RealiumTokenV2");
         this.RealiumTokenV2 = await ethers.getContractFactory("contracts/RealiumToken.sol:RealiumTokenV2");
@@ -41,7 +41,10 @@ describe('Coin', function () {
         it('mock test', async function () {
             // If another contract calls balanceOf on the mock contract, return AMT
             const balanceOf = Web3.utils.sha3('balanceOf(address)').slice(0,10);
-            await this.mock.givenMethodReturnUint(balanceOf, AMT);
+            console.log(balanceOf)
+            var totalSupply = await this.mock.totalSupply();
+            console.log(totalSupply)
+            console.log(totalSupply.isInteger())
         });
     });
 

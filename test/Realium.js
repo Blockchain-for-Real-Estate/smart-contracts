@@ -21,14 +21,14 @@ const AMT = 10
 // Start test block
 describe('Realium', function () {
     before(async function () {
-        this.RealiumToken = await ethers.getContractFactory("RealiumTokenV2");
-        this.RealiumTokenV2 = await ethers.getContractFactory("contracts/RealiumToken.sol:RealiumTokenV2");
+        this.RealiumToken = await ethers.getContractFactory("RealiumTestToken");
+        this.RealiumTokenV2 = await ethers.getContractFactory("contracts/RealiumTestToken.sol:RealiumTestToken");
     });
 
     beforeEach(async function () {
-        this.coin = await this.RealiumToken.deploy("Realium Test","REAL",100)
+        this.coin = await this.RealiumToken.deploy()
         await this.coin.deployed()
-        this.mock = await this.RealiumTokenV2.deploy("Realium Test V2","RLV2",100)
+        this.mock = await this.RealiumTokenV2.deploy()
         await this.mock.deployed()
     });
 
@@ -44,7 +44,10 @@ describe('Realium', function () {
             console.log(balanceOf)
             var totalSupply = await this.mock.totalSupply();
             console.log(totalSupply)
-            console.log(totalSupply.isInteger())
+            console.log(totalSupply.toNumber())
+            var total = .0001
+            var amount = ethers.utils.parseEther(total.toString())
+            console.log(amount.toNumber())
         });
     });
 

@@ -7,7 +7,7 @@ import "@openzeppelin/contracts/utils/math/SafeMath.sol";
 
 contract RealiumTestToken is ERC20, Ownable {
   string private TOKEN_NAME = "Rock Harbor - Realium Test Token";
-  string private TOKEN_SYMBOL = "REAL";
+  string private TOKEN_SYMBOL = "REALRH";
 
   event Sale(address seller, address indexed buyer, uint256 price, uint256 count);
   event Listed(address indexed owner, uint256 price, uint256 count);
@@ -45,7 +45,10 @@ contract RealiumTestToken is ERC20, Ownable {
 //   }
 
   function sale(address sellerAddress, uint256 count, uint256 price) public payable {
+    require(balanceOf(sellerAddress)>=count, "Seller does not have enough tokens.");
+    require(msg.value >= count*price, "Insufficient funds sent, please send the correct amount of funds.");
     transferFrom(sellerAddress, msg.sender, count);
+    payable(sellerAddress).transfer(msg.value);
     emit Sale(sellerAddress, msg.sender, price, count);
   }
 }

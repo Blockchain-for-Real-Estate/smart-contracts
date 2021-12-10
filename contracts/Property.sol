@@ -33,8 +33,15 @@ contract Property {
     Offer[] private offers;
     mapping(address => uint) public addressToTokenCount;
     mapping(address => uint) public addressToOfferCount;
+    mapping(address => uint) public addressToOffer;
+
+    // Used to create view functions
     uint public listingsCount;
     uint public offersCount;
+
+    // use this to know how many tokens are for sale from a seller
+    // we can then sell multiple tokens at once
+    mapping(address => uint) escrowedTokensBalance;
 
     constructor(string memory _propertyId, address _propertyOwner, uint _totalSupply, uint _initialSupply, uint32 _pricePerShare ) {
         propertyId = _propertyId;
@@ -79,9 +86,18 @@ contract Property {
         _;
     }
 
+    //modifier to check tokens are available and in smart contract
+
+    
+    //modifier the smart contract has enough money to faciliate a trade
+
+
+    modifier amountSentMoreThanOfferPrice(uint32 _offerPrice){
+        require(msg.value > _offerPrice);
+        _;
+    }
+
     function getListings() external view returns(Token[] memory) {
-        // TODO get the listings that are active and return them
-        // We may want to keep track of the number of listings, this will allow us to us a view function to see all listings
         Token[] memory listings = new Token[](listingsCount);
         uint256 count = 0;
         //TODO: is this the best check????
@@ -99,7 +115,6 @@ contract Property {
     }
 
     function getOffers() external view returns(Offer[] memory) {
-        // TODO get the offers that are active and return them
         Offer[] memory activeOffers = new Offer[](offersCount);
         uint256 count = 0;
         if (count > offersCount){
@@ -115,7 +130,6 @@ contract Property {
     }
 
     function getAddressTokens() external view returns(Token[] memory) {
-        // TODO get any tokens that are the senders
         Token[] memory addressTokens = new Token[](addressToTokenCount[msg.sender]);
         uint256 count = 0;
         for (uint256 index = 0; index < tokens.length; index++) {
@@ -151,10 +165,21 @@ contract Property {
     }
 
     function listToken(uint _tokenId, uint32 _listPrice) public onlyTokenOwner(_tokenId) {
-        // TODO list the token
+        depositToken();
         tokens[_tokenId].listPrice = _listPrice;
         tokens[_tokenId].listed = true;
         listingsCount++;
+    }
+
+
+    function depositToken() public {
+        escrowedTokensBalance[msg.sender]=escrowedTokensBalance[msg.sender]+1;
+        Property(address(this)).transferFrom(msg.sender, address(this), 1);
+    }
+
+    function returnToken() public {
+        escrowedTokensBalance[msg.sender]=escrowedTokensBalance[msg.sender] - 1;
+        Property(address(this)).transferFrom(address(this),msg.sender, 1);
     }
 
     function updateToken(uint _tokenId, uint32 _listPrice) public onlyTokenOwner(_tokenId) isListed(_tokenId) {
@@ -162,38 +187,41 @@ contract Property {
     }
 
     function unlistToken(uint _tokenId) public onlyTokenOwner(_tokenId) isListed(_tokenId){
+        returnToken();
         tokens[_tokenId].listed = false;
         listingsCount--;
     }
 
-    // TODO: check if the offerer has the amount to offer
-    function makeOffer(uint32 _offerAmount) public {
-        offers.push(Offer(msg.sender, _offerAmount, true));
+    function makeOffer(uint32 _offerPrice) public payable amountSentMoreThanOfferPrice(_offerPrice){
+        payable(address(this)).transfer(msg.value);
+        addressToOffer[msg.sender] = offers.length;
+        offers.push(Offer(msg.sender, _offerPrice, true));
         offersCount++;
-        // TODO: make a mapping from address to uint and the uint is the _offerId, allow for easy updates but will allow only 1 offer to be made for 1 token.
-        // TODO: transfer funds into smart contract
     }
 
-    function updateOffer(uint _offerId, uint32 _offerPrice) public onlyOfferBuyer(_offerId) {
-        offers[_offerId].offerPrice = _offerPrice;
-        // TODO: adjust funds in smart contract
+    // TODO: Could find a way to update this where we add or subtract and change the offerPrice. This is the easiest right now. We will need some frontend logic to 
+    // make it easier if we go add/subtract
+    function updateOffer(uint32 _offerPrice) public payable  amountSentMoreThanOfferPrice(_offerPrice) { 
+        uint offerId = addressToOffer[msg.sender];
+        payable(msg.sender).transfer(offers[offerId].offerPrice);
+        payable(address(this)).transfer(msg.value);
+        offers[offerId].offerPrice = _offerPrice;
     }
 
-    function retractOffer(uint _offerId) public onlyOfferBuyer(_offerId) {
-        offers[_offerId].active = false;
-        payable(msg.sender).transfer(offers[_offerId].offerPrice);
+    function retractOffer() public { 
+        uint offerId = addressToOffer[msg.sender];
+        offers[offerId].active = false;
+        payable(msg.sender).transfer(offers[offerId].offerPrice);
         offersCount--;
     }
 
     function buyListing(uint _tokenId) public payable {
         require(getBalance(tokens[_tokenId].currentOwner)>=1, "Seller does not have enough tokens.");
         require(msg.value >= tokens[_tokenId].listPrice, "Insufficient funds sent, please send the correct amount of funds.");
-        // TODO: write the transferFrom transfers from smart contract to address of the tokens
-        // transferFrom();
+        transferFrom(address(this), msg.sender, 1);
         payable(tokens[_tokenId].currentOwner).transfer(msg.value);
         tokens[_tokenId].listed=false;
         tokens[_tokenId].lastPurchasePrice=tokens[_tokenId].listPrice;
-        //TODO: see if this incrementing works
         incrementTokenCount(msg.sender);
         decrementTokenCount(tokens[_tokenId].currentOwner);
         listingsCount--;
@@ -204,10 +232,8 @@ contract Property {
     //TODO: think through how this will work, because there is no listing so is it just any token that the owner holds that isnt listed?
     function acceptOffer(uint _offerId) public payable {
         require(getBalance(msg.sender)>=1, "Seller does not have enough tokens.");
-        // TODO: write the transferFrom transfers from smart contract to address of the tokens
-        // transferFrom();
-        payable(offers[_offerId].buyer).transfer(msg.value);
-        //TODO: see if this incrementing works
+        transferFrom(address(this), offers[_offerId].buyer, 1);
+        payable(msg.sender).transfer(msg.value);
         incrementTokenCount(offers[_offerId].buyer);
         decrementTokenCount(msg.sender);
         offersCount--;
@@ -218,15 +244,18 @@ contract Property {
         // TODO release the tokens to the propertyOwner
     }
 
+    //TODO: see if this incrementing works
     function incrementTokenCount(address tokenAddress) private {
         addressToTokenCount[tokenAddress] = addressToTokenCount[tokenAddress]+1;
     }
 
+    //TODO: see if this decrementing works
     function decrementTokenCount(address tokenAddress) private {
         addressToTokenCount[tokenAddress] = addressToTokenCount[tokenAddress]-1;
     }
 
-    function transferFrom(address owner, address buyer, uint256 count) private {
-
+    //TODO: this may be best as a private function but deposit relies on it being public
+    function transferFrom(address from, address to, uint256 count) public {
+        // this code should be able to be pulled in from ERC721 contracts
     }
 }
